@@ -9,6 +9,9 @@
 #include "Kismet/KismetMathLibrary.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "SAttributeComponent.h"
+#include "Kismet/GameplayStatics.h"
+#include "SAction.h"
+#include "SActionComponent.h"
 
 
 
@@ -28,17 +31,22 @@ ASCharacter::ASCharacter()
 	InteractionComp = CreateDefaultSubobject<USInteractionComponent>("InteractionComp");
 
 	AttributeComp = CreateDefaultSubobject<USAttributeComponent>("AtributeComp");
+	ActionComp = CreateDefaultSubobject<USActionComponent>("ActionComp");
 
 	this->bUseControllerRotationYaw = false;
 	GetCharacterMovement()->bOrientRotationToMovement = true;
 
+	HandSocketName = "Muzzle_01";
 
+	AttackAnimDelay = 0.2f;
 }
 
 // Called when the game starts or when spawned
 void ASCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+
+	
 	
 }
 
@@ -60,6 +68,16 @@ void ASCharacter::MoveRight(float Value)
 	FVector RightVector = FRotationMatrix(ControlRot).GetScaledAxis(EAxis::Y);
 
 	AddMovementInput(RightVector, Value);
+}
+
+void ASCharacter::SprintStart()
+{
+	ActionComp->StartActionByName(this, "Sprint");
+}
+
+void ASCharacter::SprintStop()
+{
+	ActionComp->StopActionByName(this, "Sprint");
 }
 
 void ASCharacter::Jumping()
@@ -94,44 +112,39 @@ void ASCharacter::SpawnProjectile(TSubclassOf<AActor> ClassToSpawn)
 {
 	if (ensure(ClassToSpawn))
 	{
-		FVector Handlocation = GetMesh()->GetSocketLocation("Muzzle_01");
+		FVector HandLocation = GetMesh()->GetSocketLocation(HandSocketName);
+		FRotator CameraRotation = CameraComp->GetComponentRotation();
+		FVector CameraForwardVector = UKismetMathLibrary::GetForwardVector(CameraRotation);
+		FVector ImpactLocation = CameraComp->GetComponentLocation() + CameraForwardVector * 5000;
 
-		FActorSpawnParameters SpawnParams;
-		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-		SpawnParams.Instigator = this;
+		TArray<AActor*> IgnoreArray;
+		IgnoreArray.Add(this);
+		FHitResult HitResult;
 
-		FCollisionShape Shape;
-		Shape.SetSphere(20.0f);
+		bool HitSuccess = UKismetSystemLibrary::LineTraceSingle(GetWorld(), CameraComp->GetComponentLocation(), ImpactLocation, TraceTypeQuery1, false, IgnoreArray,
+			EDrawDebugTrace::None, HitResult, true, FLinearColor::Red, FLinearColor::Green, 4.0f);
 
-		//Ignore Player
-		FCollisionQueryParams Params;
-		Params.AddIgnoredActor(this);
-
-		FCollisionObjectQueryParams ObjParams;
-		ObjParams.AddObjectTypesToQuery(ECC_WorldDynamic);
-		ObjParams.AddObjectTypesToQuery(ECC_WorldStatic);
-		ObjParams.AddObjectTypesToQuery(ECC_Pawn);
-
-		FVector Tracestart = CameraComp->GetComponentLocation();
-
-		//endpoint far into the look-at distance (not too far,still adjust somewhat towards Crosshairs on a miss)
-		FVector Traceend = CameraComp->GetComponentLocation() + UKismetMathLibrary::GetForwardVector(CameraComp->GetComponentRotation()) * 5000;
-
-		FHitResult Hit;
-		//returns true if we got to a blocking hit
-		if (GetWorld()->SweepSingleByObjectType(Hit,Tracestart,Traceend,FQuat::Identity,ObjParams,Shape,Params))
+		FRotator Rotator;
+		if (HitSuccess)
 		{
-			Traceend = Hit.ImpactPoint;
+			UKismetSystemLibrary::PrintString(GetWorld(), FString::Printf(TEXT("hit actor: %s"), *HitResult.Actor->GetName()));
+			Rotator = UKismetMathLibrary::FindLookAtRotation(HandLocation, HitResult.Location);
+		}
+		else
+		{
+			Rotator = UKismetMathLibrary::FindLookAtRotation(HandLocation, ImpactLocation);
 		}
 
-		// find new direction/rotation from Hand pointing to impact point in world.
-		//FRotator ProRotation = UKismetMathLibrary::FindLookAtRotation(Tracestart, Traceend);
-		//视频此处的ProRotation求法：
-		FRotator ProRotation = FRotationMatrix::MakeFromX(Traceend - Handlocation).Rotator();
 
-		FTransform SpawnTM = FTransform(ProRotation, Handlocation);
-		GetWorld()->SpawnActor<AActor>(ClassToSpawn, SpawnTM, SpawnParams);
+		FTransform SpawnTM = FTransform(Rotator, HandLocation);
 
+		FActorSpawnParameters SpawnParms;
+		SpawnParms.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		SpawnParms.Instigator = this;
+
+		GetWorld()->SpawnActor<AActor>(ClassToSpawn, SpawnTM, SpawnParms);
+		//Muzzle_Flash
+		UGameplayStatics::SpawnEmitterAttached(CastingEffect, GetMesh(), HandSocketName, FVector::ZeroVector, FRotator::ZeroRotator, EAttachLocation::SnapToTarget);
 
 	}
 }
@@ -141,21 +154,30 @@ void ASCharacter::SpawnProjectile(TSubclassOf<AActor> ClassToSpawn)
 #pragma region PreAttack
 void ASCharacter::PrimaryAttack()
 {
-	PlayAnimMontage(AttackAnim);
-
-	GetWorldTimerManager().SetTimer(TimerHandle_PrimaryAttack, this, &ASCharacter::PrimaryAttack_TimeElapsed, 0.2f);//一个计时器,里面有要触发的函数
+	//UE_LOG(LogTemp, Warning, TEXT("PrimaryAttack"));
+	ActionComp->StartActionByName(this, "PrimaryAttack");
+	//StartAttackEffects();
+	//GetWorldTimerManager().SetTimer(TimerHandle_PrimaryAttack, this, &ASCharacter::PrimaryAttack_TimeElapsed, AttackAnimDelay);
 }
 
 void ASCharacter::BlackHoleAttack()
 {
-	PlayAnimMontage(AttackAnim);
-	GetWorldTimerManager().SetTimer(TimerHandle_BlackHoleAttack, this, &ASCharacter::BlackHoleAttack_TimeElapsed, 0.2f);
+	//StartAttackEffects();
+	//GetWorldTimerManager().SetTimer(TimerHandle_BlackHoleAttack, this, &ASCharacter::BlackHoleAttack_TimeElapsed, AttackAnimDelay);
+	ActionComp->StartActionByName(this, "BlackHoleAttack");
 }
 
 void ASCharacter::Dash()
 {
+	//StartAttackEffects();
+	//GetWorldTimerManager().SetTimer(TimerHandle_Dash, this, &ASCharacter::Dash_TimeElapsed, AttackAnimDelay);
+	ActionComp->StartActionByName(this, "Dash");
+}
+
+void ASCharacter::StartAttackEffects()
+{
 	PlayAnimMontage(AttackAnim);
-	GetWorldTimerManager().SetTimer(TimerHandle_Dash, this, &ASCharacter::Dash_TimeElapsed, 0.2f);
+	
 }
 
 void ASCharacter::PrimaryInteract()
@@ -189,6 +211,21 @@ void ASCharacter::PostInitializeComponents()
 	AttributeComp->OnHealthChanged.AddDynamic(this, &ASCharacter::OnHealthChanged);
 }
 
+FVector ASCharacter::GetPawnViewLocation() const
+{
+	return CameraComp->GetComponentLocation();
+}
+
+FRotator ASCharacter::GetPawnViewRotator() const
+{
+	return CameraComp->GetComponentRotation();
+}
+
+void ASCharacter::HealSelf(float Amount /*= 100*/)
+{
+	AttributeComp->ApplyHealthChange(this, Amount);
+}
+
 // Called every frame
 void ASCharacter::Tick(float DeltaTime)
 {
@@ -217,5 +254,11 @@ void ASCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponen
 	PlayerInputComponent->BindAction("BlackHole", IE_Pressed, this, &ASCharacter::BlackHoleAttack);
 	PlayerInputComponent->BindAction("Dash", IE_Pressed, this, &ASCharacter::Dash);
 	
+	PlayerInputComponent->BindAction("Sprint", IE_Pressed, this, &ASCharacter::SprintStart);
+	PlayerInputComponent->BindAction("Sprint", IE_Released, this, &ASCharacter::SprintStop);
+
 }
+
+
+
 #pragma endregion

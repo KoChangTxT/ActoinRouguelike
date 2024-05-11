@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "SActionComponent.h"
 #include "SCharacter.generated.h"
 
 class UCameraComponent;
@@ -11,6 +12,7 @@ class USpringArmComponent;
 class USInteractionComponent;
 class UAnimMontage;
 class USAttributeComponent;
+class USAction;
 
 
 UCLASS()
@@ -19,6 +21,13 @@ class ACTIONROUGUELIKE_API ASCharacter : public ACharacter
 	GENERATED_BODY()
 
 protected:
+
+	UPROPERTY(VisibleAnywhere, Category = "Effects")
+	FName HandSocketName;
+	UPROPERTY(VisibleAnywhere, Category = "Effects")
+	FName TimeToHitParamName;
+	UPROPERTY(EditAnywhere, Category = "Effects")
+	UParticleSystem* CastingEffect;
 
 	UPROPERTY(EditAnywhere, Category = "Attack")
 	TSubclassOf<AActor> ProjectileClass;
@@ -29,6 +38,8 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = "Attack")
 	UAnimMontage* AttackAnim;
+	UPROPERTY(EditDefaultsOnly, Category = "Attack")
+	float AttackAnimDelay;
 
 	FTimerHandle TimerHandle_PrimaryAttack;
 	FTimerHandle TimerHandle_BlackHoleAttack;
@@ -54,12 +65,18 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly,Category = "Components")
 	USAttributeComponent* AttributeComp;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	USActionComponent* ActionComp;
+
 	
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
 	void MoveForward(float Value);
 	void MoveRight(float Value);
+
+	void SprintStart();
+	void SprintStop();
 
 	void PrimaryAttack();   //攻击函数
 	void BlackHoleAttack();
@@ -71,6 +88,8 @@ protected:
 	void BlackHoleAttack_TimeElapsed();
 	void Dash_TimeElapsed();
 
+	void StartAttackEffects();
+
 	void SpawnProjectile(TSubclassOf<AActor> ClassToSpawn); //通道检测公用函数
 
 	void Jumping();
@@ -80,6 +99,9 @@ protected:
 	void OnHealthChanged(AActor* InstigatorActor, USAttributeComponent* OwingComp, float NewHealth, float Delta);
 
 	virtual void PostInitializeComponents() override;
+
+	UFUNCTION(Exec)
+		void HealSelf(float Amount = 100);
 	
 
 public:	
@@ -88,5 +110,8 @@ public:
 
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+
+	virtual FVector GetPawnViewLocation() const override;
+	FRotator GetPawnViewRotator() const;
 
 };

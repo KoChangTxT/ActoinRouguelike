@@ -8,6 +8,7 @@
 #include "SAttributeComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Components/AudioComponent.h"
+#include "SGameplayFunctionLibrary.h"
 
 // Sets default values
 ASMagicProjectile::ASMagicProjectile()
@@ -24,37 +25,52 @@ ASMagicProjectile::ASMagicProjectile()
 	EffectComp->SetupAttachment(SphereComp);
 
 	MovementComp = CreateDefaultSubobject<UProjectileMovementComponent>("MovementComp");
-	MovementComp->InitialSpeed = 1000.0f;
+	MovementComp->InitialSpeed = 4000.0f;
 	MovementComp->bRotationFollowsVelocity = true;
 	MovementComp->bInitialVelocityInLocalSpace = true;
 
-	FlySoundComp = CreateDefaultSubobject<UAudioComponent>("FlySoundComp");
+	ImpactShakeInnerRadius = 0.0f;
+	ImpactShakeOuterRadius = 1500.0f;
 
 }
 
 void ASMagicProjectile::OnActorOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult & SweepResult)
 {
+	
 	if (OtherActor && OtherActor != GetInstigator())
 	{
-		USAttributeComponent* AttributeComp = Cast<USAttributeComponent>(OtherActor->GetComponentByClass(USAttributeComponent::StaticClass()));
+		/*USAttributeComponent* AttributeComp = Cast<USAttributeComponent>(OtherActor->GetComponentByClass(USAttributeComponent::StaticClass()));
 		if (AttributeComp)
 		{
-			AttributeComp->ApplyHealthChange(-20.0f);
+			AttributeComp->ApplyHealthChange(GetInstigator(),-DamageAmount);
 
-			UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), HitEffects, GetActorLocation(), GetActorRotation(), ((FVector)((1.0F))),true,EPSCPoolMethod::None,true);
-			UGameplayStatics::PlaySoundAtLocation(GetWorld(), HitSound, GetActorLocation(), GetActorRotation());
-			UGameplayStatics::PlayWorldCameraShake(GetWorld(), CameraShakeClass, OtherActor->GetActorLocation(), 0.0f, 200.0f,1.0f,true);
-			
-
-			Destroy();
+			Explode();
+		}*/
+		UE_LOG(LogTemp, Warning, TEXT("OtherActor Success"));
+		if (USGameplayFunctionLibrary::ApplyDirectionDamage(GetInstigator(), OtherActor, DamageAmount, SweepResult))
+		{
+			UE_LOG(LogTemp, Warning, TEXT("OtherActor Success2"));
+			Explode();
 		}
+		UE_LOG(LogTemp, Warning, TEXT("OtherActor Failed"));
 	}
+}
+
+void ASMagicProjectile::Explode()
+{
+	UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), HitEffects, GetActorLocation(), GetActorRotation(), ((FVector)((1.0F))), true, EPSCPoolMethod::None, true);
+	UGameplayStatics::PlaySoundAtLocation(GetWorld(), HitPawnSound, GetActorLocation(), GetActorRotation());
+	UGameplayStatics::PlayWorldCameraShake(GetWorld(), ImpactShake, GetActorLocation(), ImpactShakeInnerRadius, ImpactShakeOuterRadius);
+
+
+	Destroy();
 }
 
 // Called when the game starts or when spawned
 void ASMagicProjectile::BeginPlay()
 {
 	Super::BeginPlay();
+	UGameplayStatics::PlaySoundAtLocation(GetWorld(), FireSound,GetActorLocation());
 	
 }
 

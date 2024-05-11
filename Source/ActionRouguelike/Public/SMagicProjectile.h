@@ -12,6 +12,7 @@ class UParticleSystemComponent;
 class UAudioComponent;
 class SoundBase;
 class UCameraShakeBase;
+class UMatineeCameraShake;
 
 UCLASS()
 class ACTIONROUGUELIKE_API ASMagicProjectile : public AActor
@@ -24,6 +25,9 @@ public:
 
 	UFUNCTION()
 	void OnActorOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult & SweepResult);
+
+	UFUNCTION()
+		void Explode();
 
 protected:
 
@@ -39,14 +43,21 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "HitEffects")
 	UParticleSystem* HitEffects;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	UAudioComponent* FlySoundComp;
-
 	UPROPERTY(EditAnywhere,Category = "Audio")
-	USoundBase* HitSound;
+	USoundBase* HitPawnSound;
+	UPROPERTY(EditAnywhere, Category = "Audio")
+	USoundBase* FireSound;
 
-	UPROPERTY(EditAnywhere)
-	TSubclassOf<UCameraShakeBase> CameraShakeClass;
+	UPROPERTY(EditDefaultsOnly, Category = "Effects|Shake")
+		float ImpactShakeInnerRadius;
+	UPROPERTY(EditDefaultsOnly, Category = "Effects|Shake")
+		float ImpactShakeOuterRadius;
+
+	UPROPERTY(EditDefaultsOnly,Category = "Effects|Shake")
+	TSubclassOf<UMatineeCameraShake> ImpactShake;
+
+	UPROPERTY(EditAnywhere, Category = "Attack")
+		float DamageAmount;
 
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
