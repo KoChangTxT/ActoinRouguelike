@@ -3,6 +3,7 @@
 
 #include "SPowerup_HealthPotion.h"
 #include <SAttributeComponent.h>
+#include "SPlayerState.h"
 
 void ASPowerup_HealthPotion::Interact_Implementation(APawn* InstigatorPawn)
 {
@@ -16,12 +17,20 @@ void ASPowerup_HealthPotion::Interact_Implementation(APawn* InstigatorPawn)
 	//UE_LOG(LogTemp, Log, TEXT("nextsuccess"));
 	USAttributeComponent* AttributeComp = Cast<USAttributeComponent>(InstigatorPawn->GetComponentByClass(USAttributeComponent::StaticClass()));
 	
-	
+	//检查是否满血
 	if (ensure(AttributeComp) && !AttributeComp->IsFullHealth())
 	{
-		//UE_LOG(LogTemp, Log, TEXT("HideAndCooldownPowerup"));
-		HideAndCooldownPowerup();
-		AttributeComp->ApplyHealthChange(this,RecoverHP);
+
+		if (ASPlayerState* PS = InstigatorPawn->GetPlayerState<ASPlayerState>())
+		{
+			if (PS->RemoveCredits(CreaditCost) && AttributeComp->ApplyHealthChange(this, RecoverHP))
+			{
+				//只在治疗成功时触发
+				HideAndCooldownPowerup();
+			}
+		}
+		
+		//AttributeComp->ApplyHealthChange(this,RecoverHP);
 	}
 
 

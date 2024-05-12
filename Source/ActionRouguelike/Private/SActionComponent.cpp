@@ -22,7 +22,7 @@ void USActionComponent::BeginPlay()
 
 	for (TSubclassOf<USAction>ActionClass:DefaultActions)
 	{
-		AddAction(ActionClass);
+		AddAction(GetOwner(),ActionClass);
 	}
 
 	/*for (USAction* Action : Actions)
@@ -48,7 +48,7 @@ void USActionComponent::TickComponent(float DeltaTime, ELevelTick TickType, FAct
 	// ...
 }
 
-void USActionComponent::AddAction(TSubclassOf<USAction> ActionClass)
+void USActionComponent::AddAction(AActor* Instigator,TSubclassOf<USAction> ActionClass)
 {
 	if (!ensure(ActionClass))
 	{
@@ -60,8 +60,23 @@ void USActionComponent::AddAction(TSubclassOf<USAction> ActionClass)
 	if (ensure(NewAction))
 	{
 		Actions.Add(NewAction);
+
+		if (NewAction->bAutoStart && ensure(NewAction->CanStart(Instigator)))
+		{
+			NewAction->StartAction(Instigator);
+		}
 	}
 
+}
+
+void USActionComponent::RemoveAction(USAction* ActionToRemove)
+{
+	if (!ensure(ActionToRemove && !ActionToRemove->IsRunning()))
+	{
+		return;
+	}
+
+	Actions.Remove(ActionToRemove);
 }
 
 bool USActionComponent::StartActionByName(AActor* Instigator, FName ActionName)
@@ -75,11 +90,11 @@ bool USActionComponent::StartActionByName(AActor* Instigator, FName ActionName)
 			UE_LOG(LogTemp, Warning, TEXT("222222222"));
 			//UE_LOG(LogTemp, Warning, TEXT("Name: %s"), *ActionName.ToString());
 			
-			if (!Action->CanStart(Instigator))
+			if (!Action->CanStart(Instigator)) 
 			{
 				FString FailedMsg = FString :: Printf(TEXT("Failed to run:%s"), *ActionName.ToString());
 				GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Red, FailedMsg);
-				continue;
+				continue;//这个continue是不同的技能但是有相同的名字，其中一个可以释放的情况
 			}
 			Action->StartAction(Instigator);
 
@@ -96,11 +111,15 @@ bool USActionComponent::StopActionByName(AActor* Instigator, FName ActionName)
 {
 	for (USAction* Action : Actions)
 	{
-		if (Action->IsRunning())
+		if (Action && Action->ActionName == ActionName)
 		{
-			Action->StopAction(Instigator);
-			return true;
+			if (Action->IsRunning())
+			{
+				Action->StopAction(Instigator);
+				return true;
+			}
 		}
+		
 		
 	}
 

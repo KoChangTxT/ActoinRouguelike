@@ -54,5 +54,31 @@ public:
 
 	UFUNCTION(Exec)
 		void KillAll();
+
+protected:
+	// 蓝图拥有完整的读写权限，这样我们就可以通过难度曲线蓝图资产来修改这个值
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "AI")
+		int32 CreditsPerKill;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Powerups")
+		UEnvQuery* PowerupSpawnQuery;
+
+	//使用EQS在关卡开始时生成的所有拾取物类 
+	UPROPERTY(EditDefaultsOnly, Category = "Powerups")
+		TArray<TSubclassOf<AActor>> PowerupClasses;
+
+	//拾取物之间的最小间隔距离 
+	UPROPERTY(EditDefaultsOnly, Category = "Powerups")
+		float RequiredPowerupDistance;
+
+	//* 游戏开始时生成的拾取物的数量
+	UPROPERTY(EditDefaultsOnly, Category = "Powerups")
+		int32 DesiredPowerupCount;
+
+	UFUNCTION()
+		void OnBotSpawnQueryCompleted(UEnvQueryInstanceBlueprintWrapper* QueryInstance, EEnvQueryStatus::Type QueryStatus);
+
+	UFUNCTION()
+		void OnPowerupSpawnQueryCompleted(UEnvQueryInstanceBlueprintWrapper* QueryInstance, EEnvQueryStatus::Type QueryStatus);
 	
 };

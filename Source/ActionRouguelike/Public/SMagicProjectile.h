@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "GameplayTagContainer.h"
 #include "SMagicProjectile.generated.h"
 
 class USphereComponent;
@@ -13,6 +14,7 @@ class UAudioComponent;
 class SoundBase;
 class UCameraShakeBase;
 class UMatineeCameraShake;
+class USActionEffect;
 
 UCLASS()
 class ACTIONROUGUELIKE_API ASMagicProjectile : public AActor
@@ -30,6 +32,9 @@ public:
 		void Explode();
 
 protected:
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	TSubclassOf<USActionEffect> BurningActionClass;
 
 	UPROPERTY(VisibleAnywhere,BlueprintReadOnly)
 	USphereComponent* SphereComp;
@@ -56,8 +61,11 @@ protected:
 	UPROPERTY(EditDefaultsOnly,Category = "Effects|Shake")
 	TSubclassOf<UMatineeCameraShake> ImpactShake;
 
-	UPROPERTY(EditAnywhere, Category = "Attack")
+	UPROPERTY(EditAnywhere, Category = "Damage")
 		float DamageAmount;
+
+	UPROPERTY(EditAnywhere, Category = "Damage")
+		FGameplayTag ParryTag;
 
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;

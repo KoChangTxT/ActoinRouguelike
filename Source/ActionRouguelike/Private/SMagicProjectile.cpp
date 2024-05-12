@@ -9,6 +9,8 @@
 #include "Kismet/GameplayStatics.h"
 #include "Components/AudioComponent.h"
 #include "SGameplayFunctionLibrary.h"
+#include "SActionComponent.h"
+#include "SActionEffect.h"
 
 // Sets default values
 ASMagicProjectile::ASMagicProjectile()
@@ -46,13 +48,31 @@ void ASMagicProjectile::OnActorOverlap(UPrimitiveComponent* OverlappedComponent,
 
 			Explode();
 		}*/
-		UE_LOG(LogTemp, Warning, TEXT("OtherActor Success"));
+		//UE_LOG(LogTemp, Warning, TEXT("OtherActor Success"));
+
+		//static FGameplayTag Tag = FGameplayTag::RequestGameplayTag("Status.Parrying");
+
+		USActionComponent* ActionComp = Cast<USActionComponent>(OtherActor->GetComponentByClass(USActionComponent::StaticClass()));
+
+		if (ActionComp && ActionComp->ActiveGameplayTags.HasTag(ParryTag))//防御机制，将攻击反弹
+		{
+			MovementComp->Velocity = -MovementComp->Velocity;
+
+			SetInstigator(Cast<APawn>(OtherActor)); //这里要将Instigator设置为我们自己，否则这个飞弹回去会因为一开始的判断OtherActor != GetInstigator导致不会触发攻击
+
+			return;
+		}
+
 		if (USGameplayFunctionLibrary::ApplyDirectionDamage(GetInstigator(), OtherActor, DamageAmount, SweepResult))
 		{
-			UE_LOG(LogTemp, Warning, TEXT("OtherActor Success2"));
 			Explode();
+
+			if (ActionComp)
+			{
+				ActionComp->AddAction(GetInstigator(), BurningActionClass);
+			}
 		}
-		UE_LOG(LogTemp, Warning, TEXT("OtherActor Failed"));
+		
 	}
 }
 
