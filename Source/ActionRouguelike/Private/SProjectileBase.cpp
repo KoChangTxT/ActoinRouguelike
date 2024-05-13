@@ -24,6 +24,8 @@ ASProjectileBase::ASProjectileBase()
 	MoveComp->ProjectileGravityScale = 0.0f;
 	MoveComp->InitialSpeed = 8000;
 
+	//SetReplicates(true);
+
 }
 
 

@@ -53,6 +53,7 @@ void ASCharacter::BeginPlay()
 #pragma region Move
 void ASCharacter::MoveForward(float Value)
 {
+	//UE_LOG(LogTemp, Warning, TEXT("Move ForWard"));
 	FRotator ControlRot = GetControlRotation();
 	ControlRot.Pitch = 0.0f;
 	ControlRot.Roll = 0.0f;
@@ -61,6 +62,7 @@ void ASCharacter::MoveForward(float Value)
 
 void ASCharacter::MoveRight(float Value)
 {
+	//UE_LOG(LogTemp, Warning, TEXT("Move Right"));
 	FRotator ControlRot = GetControlRotation();
 	ControlRot.Pitch = 0.0f;
 	ControlRot.Roll = 0.0f;

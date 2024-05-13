@@ -27,7 +27,7 @@ protected:
 		USizeBox* ParentSizeBox;
 public:
 
-	UPROPERTY(BlueprintReadOnly, Category = "UI")
+	UPROPERTY(BlueprintReadWrite, Category = "UI",meta = (ExposeOnSpawn = true))
 		AActor* AttachedActor;
 	
 };
