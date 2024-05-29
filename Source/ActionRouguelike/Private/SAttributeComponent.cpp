@@ -43,6 +43,11 @@ float USAttributeComponent::GetHealthMax() const
 }
 
 
+float USAttributeComponent::GetRage() const
+{
+	return Rage;
+}
+
 bool USAttributeComponent::ApplyHealthChange(AActor* InstigatorActor, float Delta)
 {
 	if (!GetOwner()->CanBeDamaged() && Delta < 0.0f) //CanBeDamaged为虚幻内置方法，通过作弊码God开启，开启后则返回false
@@ -50,6 +55,11 @@ bool USAttributeComponent::ApplyHealthChange(AActor* InstigatorActor, float Delt
 		UE_LOG(LogTemp, Warning, TEXT("OtherActor Success8"));
 		return false;
 	}
+
+	/*if (!GetOwner()->HasAuthority())
+	{
+		return false;
+	}*///这段代码会返回false然后无法触发粒子碰撞之后爆炸效果
 
 	if (Delta < 0.0f)
 	{
@@ -59,31 +69,56 @@ bool USAttributeComponent::ApplyHealthChange(AActor* InstigatorActor, float Delt
 	}
 
 	float OldHealth = Health;
-	Health += Delta;
-	Health = FMath::Clamp(Health, 0.0f, HealthMax);
+	float NewHealth = FMath::Clamp(Health + Delta, 0.0f, HealthMax);
+	float ActualDelta = NewHealth - OldHealth;
+
+	//是否是服务器
+	if (GetOwner()->HasAuthority())
+	{
+		Health = FMath::Clamp(Health + Delta, 0.0f, HealthMax);
+		if (ActualDelta != 0.0f)
+		{
+			MulticastHealthChanged(InstigatorActor, Health, ActualDelta);
+		}
+
+		//if died
+		if (ActualDelta < 0.0f && Health == 0.0f)
+		{
+			ASGameModeBase* GM = Cast<ASGameModeBase>(GetWorld()->GetAuthGameMode());
+
+			if (GM)
+			{
+				GM->OnActorKilled(GetOwner(), InstigatorActor);
+			}
+		}
+	}
+
+	
 	/*if (Health < 0.0f) Health = 0.0f;
 	else if (Health > HealthMax) Health = HealthMax;*/
-	float ActualDelta = Health - OldHealth;
+	
 	//UE_LOG(LogTemp, Warning, TEXT("ActualDelta value is: %f"), ActualDelta);
 
 
 	//OnHealthChanged.Broadcast(InstigatorActor, this, Health, ActualDelta);
 
-	if (ActualDelta != 0.0f)
-	{
-		MulticastHealthChanged(InstigatorActor, Health, ActualDelta);
-	}
 	
 
-	//if died
-	if (ActualDelta < 0.0f && Health == 0.0f)
-	{
-		ASGameModeBase* GM = Cast<ASGameModeBase>(GetWorld()->GetAuthGameMode());
+	return ActualDelta != 0;
+}
 
-		if (GM)
-		{
-			GM->OnActorKilled(GetOwner(), InstigatorActor);
-		}
+bool USAttributeComponent::ApplyRage(AActor* InstigatorActor, float Delta)
+{
+	float OldRage = Rage;
+
+	Rage = FMath::Clamp(Rage + Delta, 0.0f, RageMax);
+
+	float ActualDelta = Rage - OldRage;
+	UE_LOG(LogTemp, Warning, TEXT("ActualDelta = %f"), ActualDelta);
+	if (ActualDelta != 0.0f)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("ActualDelta"));
+		OnRageChanged.Broadcast(InstigatorActor, this, Rage, ActualDelta);
 	}
 
 	return ActualDelta != 0;
@@ -121,6 +156,10 @@ void USAttributeComponent::MulticastHealthChanged_Implementation(AActor* Instiga
 	OnHealthChanged.Broadcast(Instigator,this, NewHealth, Delta);
 }
 
+void USAttributeComponent::MulticastRageChanged_Implementation(AActor* InstigatorActor, float NewRage, float Delta)
+{
+	OnRageChanged.Broadcast(InstigatorActor, this, NewRage, Delta);
+}
 
 
 void USAttributeComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -129,6 +168,9 @@ void USAttributeComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
 
 	DOREPLIFETIME(USAttributeComponent, Health);
 	DOREPLIFETIME(USAttributeComponent, HealthMax);
+
+	DOREPLIFETIME(USAttributeComponent, Rage);
+	DOREPLIFETIME(USAttributeComponent, RageMax);
 
 	//DOREPLIFETIME_CONDITION(USAttributeComponent, HealthMax,COND_OwnerOnly);
 }

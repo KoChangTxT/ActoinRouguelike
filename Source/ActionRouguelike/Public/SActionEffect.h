@@ -20,6 +20,9 @@ public:
 
 	void StopAction_Implementation(AActor* Instigator) override;
 
+	UFUNCTION(BlueprintCallable, Category = "Action")
+		float GetTimeRemaining() const;
+
 protected:
 		//Buff持续时长
 		UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Effect")

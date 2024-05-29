@@ -51,21 +51,21 @@ void ASCharacter::BeginPlay()
 }
 
 #pragma region Move
-void ASCharacter::MoveForward(float Value)
+void ASCharacter::MoveForward(float Value)//向前移动
 {
-	//UE_LOG(LogTemp, Warning, TEXT("Move ForWard"));
-	FRotator ControlRot = GetControlRotation();
-	ControlRot.Pitch = 0.0f;
-	ControlRot.Roll = 0.0f;
-	AddMovementInput(ControlRot.Vector(), Value);
+	
+	FRotator ControlRot = GetControlRotation(); //获取摄像机的旋转角度
+	ControlRot.Pitch = 0.0f;	
+	ControlRot.Roll = 0.0f;						//只使用摄像机的绕Z轴旋转的角度来当作向前向量
+	AddMovementInput(ControlRot.Vector(), Value); 
 }
 
-void ASCharacter::MoveRight(float Value)
+void ASCharacter::MoveRight(float Value)//向右移动
 {
-	//UE_LOG(LogTemp, Warning, TEXT("Move Right"));
-	FRotator ControlRot = GetControlRotation();
+	
+	FRotator ControlRot = GetControlRotation();//获取摄像机的旋转角度
 	ControlRot.Pitch = 0.0f;
-	ControlRot.Roll = 0.0f;
+	ControlRot.Roll = 0.0f;					  //只使用摄像机的绕Z轴旋转的角度来当作向前向量
 
 	FVector RightVector = FRotationMatrix(ControlRot).GetScaledAxis(EAxis::Y);
 
@@ -197,12 +197,19 @@ void ASCharacter::OnHealthChanged(AActor* InstigatorActor, USAttributeComponent*
 	
 		//MeshComp->SetScalarParameterValueOnMaterials("TimeToHit", GetWorld()->TimeSeconds);
 	GetMesh()->SetScalarParameterValueOnMaterials("TimeToHit", GetWorld()->TimeSeconds);
-	
+
+	//受伤怒气加成
+	float RageDelta = FMath::Abs(Delta);
+	//UE_LOG(LogTemp, Warning, TEXT("InChanged"));
+	AttributeComp->ApplyRage(InstigatorActor, RageDelta);
+	//UE_LOG(LogTemp, Warning, TEXT("ChangedOver"));
 	if (NewHealth <= 0.0f && Delta < 0.0f)
 	{
 		APlayerController* PC = Cast<APlayerController>(GetController());
 
 		DisableInput(PC);
+
+		SetLifeSpan(5.0f);
 	}
 }
 
@@ -228,7 +235,6 @@ void ASCharacter::HealSelf(float Amount /*= 100*/)
 	AttributeComp->ApplyHealthChange(this, Amount);
 }
 
-// Called every frame
 void ASCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
@@ -242,8 +248,8 @@ void ASCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponen
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 	
-	PlayerInputComponent->BindAxis("MoveForward", this, &ASCharacter::MoveForward);
-	PlayerInputComponent->BindAxis("MoveRight", this, &ASCharacter::MoveRight);
+	PlayerInputComponent->BindAxis("MoveForward", this, &ASCharacter::MoveForward); //向前/后走
+	PlayerInputComponent->BindAxis("MoveRight", this, &ASCharacter::MoveRight); //向右左走
 
 	PlayerInputComponent->BindAxis("Turn", this, &ASCharacter::AddControllerYawInput);
 	PlayerInputComponent->BindAxis("LookUP", this, &APawn::AddControllerPitchInput);
@@ -252,7 +258,7 @@ void ASCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponen
 	PlayerInputComponent->BindAction("PrimaryInteract", IE_Pressed, this, &ASCharacter::PrimaryInteract);
 
 	PlayerInputComponent->BindAction("Jumping", IE_Pressed, this, &ASCharacter::Jumping);
-	PlayerInputComponent->BindAction("StopJumping", IE_Released, this, &ASCharacter::StopJump); //jump为第一次作业自己写的
+	PlayerInputComponent->BindAction("StopJumping", IE_Released, this, &ASCharacter::StopJump); 
 	PlayerInputComponent->BindAction("BlackHole", IE_Pressed, this, &ASCharacter::BlackHoleAttack);
 	PlayerInputComponent->BindAction("Dash", IE_Pressed, this, &ASCharacter::Dash);
 	

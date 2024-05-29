@@ -5,6 +5,8 @@
 #include <SAttributeComponent.h>
 #include "SPlayerState.h"
 
+#define LOCTEXT_NAMESPACE "InteractableActors"
+
 void ASPowerup_HealthPotion::Interact_Implementation(APawn* InstigatorPawn)
 {
 	//UE_LOG(LogTemp, Log, TEXT("InteractSuccessfouth"));
@@ -36,6 +38,18 @@ void ASPowerup_HealthPotion::Interact_Implementation(APawn* InstigatorPawn)
 
 }
 
+FText ASPowerup_HealthPotion::GetInteractText_Implemetation(APawn * InstigatorPawn)
+{
+	USAttributeComponent* AttributeComp = Cast<USAttributeComponent>(InstigatorPawn->GetComponentByClass(USAttributeComponent::StaticClass()));
+		if (AttributeComp && AttributeComp->IsFullHealth())
+		{
+			return LOCTEXT("HealthPotion_FullHealthWarning","Already at full health");
+		}
+	
+		return FText::Format(LOCTEXT("HealthPotion_InterMessage", "Cost {0} Credits. Restores health to maxinum."), CreaditCost);
+}
+
+
 ASPowerup_HealthPotion::ASPowerup_HealthPotion()
 {
 	MeshComp = CreateDefaultSubobject<UStaticMeshComponent>("MeshComp");
@@ -43,3 +57,5 @@ ASPowerup_HealthPotion::ASPowerup_HealthPotion()
 	MeshComp->SetupAttachment(RootComponent);
 
 }
+
+#undef LOCTEXT_NAMESPACE

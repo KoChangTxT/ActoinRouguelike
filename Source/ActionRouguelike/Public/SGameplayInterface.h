@@ -20,8 +20,14 @@ class ACTIONROUGUELIKE_API ISGameplayInterface
 {
 	GENERATED_BODY()
 
-	// Add interface functions to this class. This is the class that will be inherited to implement this interface.
 public:
+
+	//在从SaveGame中读取Actor状态之后调用
+	UFUNCTION(BlueprintNativeEvent)
+	void OnActorLoaded();
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+	FText GetInteractText(APawn* InstigatorPawn);
 
 	UFUNCTION(BlueprintCallable,BlueprintNativeEvent)
 	void Interact(APawn* InstigatorPawn); 

@@ -3,49 +3,70 @@
 
 #include "SActionComponent.h"
 #include "SAction.h"
+#include "../ActionRouguelike.h"
+#include "Net/UnrealNetwork.h"
+#include "Engine/ActorChannel.h"
 
 // Sets default values for this component's properties
 USActionComponent::USActionComponent()
 {
-	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
-	// off to improve performance if you don't need them.
+	
 	PrimaryComponentTick.bCanEverTick = true;
 
-	// ...
+
+	SetIsReplicatedByDefault(true);
 }
 
-
-// Called when the game starts
 void USActionComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
-	for (TSubclassOf<USAction>ActionClass:DefaultActions)
+	//仅服务器
+	if (GetOwner()->HasAuthority())
 	{
-		AddAction(GetOwner(),ActionClass);
+		for (TSubclassOf<USAction>ActionClass : DefaultActions)
+		{
+			AddAction(GetOwner(), ActionClass);
+		}
 	}
-
-	/*for (USAction* Action : Actions)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Action name: %s"),*(Action->ActionName).ToString());
-
-
-		return;
-	}*/
-	// ...
 	
 }
 
+void USActionComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	//停止所有的技能
+	TArray<USAction*> ActionCopy = Actions;
+	for (USAction* Action:ActionCopy)
+	{
+		if (Action && Action->IsRunning())
+		{
+			Action->StopAction(GetOwner());
+		}
+	}
 
-// Called every frame
+	Super::EndPlay(EndPlayReason);
+
+
+}
+
 void USActionComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	FString DebugMsg = GetNameSafe(GetOwner()) + " : " + ActiveGameplayTags.ToStringSimple();
-	GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, DebugMsg);
+	//Draw All Actions
+	for (USAction*Action : Actions)
+	{
+		FColor TextColor = Action->IsRunning() ? FColor :: Blue : FColor :: White;
+		FString ActionMsg = FString::Printf(TEXT("[%s]Action: %s IsRunning: %s"),
+			*GetNameSafe(GetOwner()),
+			*GetNameSafe(Action),
+			Action->IsRunning() ? TEXT("true") : TEXT("false"));
 
-	// ...
+
+		LogOnScreen(this, ActionMsg, TextColor, 0.0f);
+		
+	}
+		
 }
 
 void USActionComponent::AddAction(AActor* Instigator,TSubclassOf<USAction> ActionClass)
@@ -55,10 +76,19 @@ void USActionComponent::AddAction(AActor* Instigator,TSubclassOf<USAction> Actio
 		return;
 	}
 
-	USAction* NewAction = NewObject<USAction>(this, ActionClass);
+	//跳过客户端
+	if (!GetOwner()->HasAuthority())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Client attempting to AddAction: [Class:%s]"),*GetNameSafe(ActionClass));
+		return;
+	}
+
+	USAction* NewAction = NewObject<USAction>(GetOwner(), ActionClass);
 
 	if (ensure(NewAction))
 	{
+		NewAction->Initialize(this);
+
 		Actions.Add(NewAction);
 
 		if (NewAction->bAutoStart && ensure(NewAction->CanStart(Instigator)))
@@ -83,11 +113,11 @@ bool USActionComponent::StartActionByName(AActor* Instigator, FName ActionName)
 {
 	for (USAction* Action: Actions)
 	{
-		//UE_LOG(LogTemp, Warning, TEXT("1111111Name: %s"), *ActionName.ToString());
+		
 		//UE_LOG(LogTemp, Warning, TEXT("333333"));
 		if (Action && Action->ActionName == ActionName)
 		{
-			UE_LOG(LogTemp, Warning, TEXT("222222222"));
+			
 			//UE_LOG(LogTemp, Warning, TEXT("Name: %s"), *ActionName.ToString());
 			
 			if (!Action->CanStart(Instigator)) 
@@ -96,6 +126,13 @@ bool USActionComponent::StartActionByName(AActor* Instigator, FName ActionName)
 				GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Red, FailedMsg);
 				continue;//这个continue是不同的技能但是有相同的名字，其中一个可以释放的情况
 			}
+
+			//是否是客户端
+			if (!GetOwner()->HasAuthority())
+			{
+				ServerStartAction(Instigator, ActionName);
+			}
+
 			Action->StartAction(Instigator);
 
 			return true;
@@ -115,6 +152,12 @@ bool USActionComponent::StopActionByName(AActor* Instigator, FName ActionName)
 		{
 			if (Action->IsRunning())
 			{
+
+				//是否是客户端
+				if (!GetOwner()->HasAuthority())
+				{
+					ServerStopAction(Instigator, ActionName);
+				}
 				Action->StopAction(Instigator);
 				return true;
 			}
@@ -125,4 +168,52 @@ bool USActionComponent::StopActionByName(AActor* Instigator, FName ActionName)
 
 	return false;
 }
+
+void USActionComponent::ServerStartAction_Implementation(AActor* Instigator, FName ActionName)
+{
+	StartActionByName(Instigator, ActionName);
+}
+
+void USActionComponent::ServerStopAction_Implementation(AActor* Instigator, FName ActionName)
+{
+	StopActionByName(Instigator, ActionName);
+}
+
+USAction* USActionComponent::GetAction(TSubclassOf<USAction> ActionClass) const //拾取技能函数
+{
+	for (USAction* Action : Actions)
+	{
+		if (Action && Action->IsA(ActionClass))
+		{
+			return Action;
+		}
+	}
+
+	return nullptr;
+} 
+
+bool USActionComponent::ReplicateSubobjects(class UActorChannel* Channel, class FOutBunch* Bunch, FReplicationFlags* RepFlags)
+{
+	bool WroteSomething = Super::ReplicateSubobjects(Channel, Bunch, RepFlags);
+	for (USAction* Action : Actions)
+	{
+		if (Action)
+		{
+			WroteSomething |= Channel->ReplicateSubobject(Action, *Bunch, *RepFlags);
+		}
+	}
+
+	return WroteSomething;
+}
+
+void USActionComponent::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty> & OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(USActionComponent, Actions);
+}
+
+
+
+
 

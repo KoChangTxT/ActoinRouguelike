@@ -23,7 +23,7 @@ public:
 
 protected:
 
-	void SetTargetActor(AActor* NewTarget);
+	//void SetTargetActor(AActor* NewTarget);
 
 	virtual void PostInitializeComponents() override;
 
@@ -46,8 +46,29 @@ protected:
 
 	UFUNCTION()
 		void OnPawnSeen(APawn* Pawn);
+	UFUNCTION(NetMulticast, Unreliable)
+		void MulticastPawnSeen();
 
 	UFUNCTION()
 		void OnHealthChanged(AActor* InstigatorActor, USAttributeComponent* OwingComp, float NewHealth, float Delta);
+
+protected:
+	/* AI第一次发现玩家显示的UI控件 */
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UUserWidget> SpottedWidgetClass;
+
+	/* 击中闪烁的材质参数名 */
+	UPROPERTY(VisibleAnywhere, Category = "Effects")
+	FName TimeToHitParamName;
+
+	/* AI黑板 'TargetActor'键的名字 */
+	UPROPERTY(VisibleAnywhere, Category = "Effects")
+	FName TargetActorKey;
+
+	UFUNCTION(BlueprintCallable, Category = "AI")
+	void SetTargetActor(AActor* NewTarget);
+
+	UFUNCTION(BlueprintCallable, Category = "AI")
+	AActor* GetTargetActor() const;
 
 };

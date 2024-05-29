@@ -16,6 +16,13 @@ ASPowerupActor::ASPowerupActor()
 
 }
 
+void ASPowerupActor::OnRep_IsActive()
+{
+	SetActorEnableCollision(bIsActive);
+	//在跟组件上设置可视性以及将子类跟随跟组件设置为true
+	RootComponent->SetVisibility(bIsActive, true);
+}
+
 void ASPowerupActor::ShowPowerup()
 {
 	SetPowerupState(true);
@@ -40,6 +47,18 @@ void ASPowerupActor::SetPowerupState(bool bIsNewActive)
 void ASPowerupActor::Interact_Implementation(APawn* InstigatorPawn)
 {
 	//logic in derived classes;
+}
+
+FText ASPowerupActor::GetInteractText_Implemetation(APawn* InstigatorPawn)
+{
+	return FText::GetEmpty();
+}
+
+void ASPowerupActor::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(ASPowerupActor, bIsActive);
 }
 
 

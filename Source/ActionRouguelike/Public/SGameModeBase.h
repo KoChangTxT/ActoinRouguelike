@@ -5,11 +5,52 @@
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
 #include "EnvironmentQuery/EnvQueryTypes.h"
+#include "Engine/DataTable.h"
 #include "SGameModeBase.generated.h"
 
 class UEnvQuery;
 class UEnvQueryInstanceBlueprintWrapper;
 class UCurve;
+class USSaveGame;
+class UDataTable;
+class USMonsterData;
+
+
+//敌人信息结构体
+USTRUCT(BlueprintType)
+struct FMonsterInfoRow:public FTableRowBase
+{
+	GENERATED_BODY()
+
+public:
+
+	FMonsterInfoRow()
+	{
+		Weight = 1.0f;
+		SpawnCost = 5.0f;
+		KillReward = 20.0f;
+	}
+
+	UPROPERTY(EditAnywhere, Category = "AI")
+		FPrimaryAssetId MonsterId;
+
+		//TSubclassOf<AActor> MonsterClass;
+		
+
+	//选择某种敌人生成的相对权重
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+		float Weight;
+
+	//生成敌人所需消耗
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+		float SpawnCost;
+
+	//击杀奖励
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+		float KillReward;
+
+};
+
 
 /**
  * 
@@ -21,8 +62,17 @@ class ACTIONROUGUELIKE_API ASGameModeBase : public AGameModeBase
 
 protected:
 
-	UPROPERTY(EditAnywhere, Category = "AI")
-		TSubclassOf<AActor> MinionClass;
+	FString SlotName;
+
+	UPROPERTY()
+		USSaveGame* CurrentSaveGame;
+
+	//所有可用的敌人角色
+	UPROPERTY(EditDefaultsOnly, Category = "AI")
+		UDataTable* MonsterTable;
+
+	/*UPROPERTY(EditAnywhere, Category = "AI")
+		TSubclassOf<AActor> MinionClass;*/
 
 	UPROPERTY(EditDefaultsOnly,Category = "AI")
 	UEnvQuery* SpawnBotQuery;
@@ -50,10 +100,19 @@ public:
 
 	ASGameModeBase();
 
+	void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
+
 	virtual void StartPlay() override;
+
+	void HandleStartingNewPlayer_Implementation(APlayerController*NewPlayer) override;
 
 	UFUNCTION(Exec)
 		void KillAll();
+
+	UFUNCTION(BlueprintCallable,Category = "SaveGame")
+	void WriteSaveGame();
+
+	void LoadSaveGame();
 
 protected:
 	// 蓝图拥有完整的读写权限，这样我们就可以通过难度曲线蓝图资产来修改这个值
@@ -77,6 +136,8 @@ protected:
 
 	UFUNCTION()
 		void OnBotSpawnQueryCompleted(UEnvQueryInstanceBlueprintWrapper* QueryInstance, EEnvQueryStatus::Type QueryStatus);
+
+	void OnMonsterLoaded(FPrimaryAssetId LoadedId, FVector SpawnLoaction);
 
 	UFUNCTION()
 		void OnPowerupSpawnQueryCompleted(UEnvQueryInstanceBlueprintWrapper* QueryInstance, EEnvQueryStatus::Type QueryStatus);

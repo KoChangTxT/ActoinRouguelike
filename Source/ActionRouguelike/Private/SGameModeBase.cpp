@@ -11,6 +11,15 @@
 #include "DrawDebugHelpers.h"
 #include "SCharacter.h"
 #include "SPlayerState.h"
+#include "Kismet/GameplayStatics.h"
+#include "SSaveGame.h"
+#include "GameFramework/GameStateBase.h"
+#include "SGameplayInterface.h"
+#include "Serialization/ObjectAndNameAsStringProxyArchive.h"
+#include "SMonsterData.h"
+#include <../ActionRouguelike.h>
+#include "SActionComponent.h"
+#include "Engine/AssetManager.h"
 
 
 static TAutoConsoleVariable<bool>CVarSpawnBots(TEXT("zk.SpawnBots"), true, TEXT("Enable spawning of bots via timer"), ECVF_Cheat);
@@ -25,9 +34,10 @@ ASGameModeBase::ASGameModeBase()
 	RequiredPowerupDistance = 2000;
 
 	PlayerStateClass = ASPlayerState::StaticClass();
+
+	SlotName = "SaveGame01";
 }
  
-
 void ASGameModeBase::StartPlay()
 {
 	Super::StartPlay();
@@ -44,6 +54,19 @@ void ASGameModeBase::StartPlay()
 			QueryInstance->GetOnQueryFinishedEvent().AddDynamic(this, &ASGameModeBase::OnPowerupSpawnQueryCompleted);
 		}
 	}
+}
+
+void ASGameModeBase::HandleStartingNewPlayer_Implementation(APlayerController*NewPlayer)
+{
+	
+	ASPlayerState *PS = NewPlayer->GetPlayerState<ASPlayerState>();
+	if (PS)
+	{
+		PS->LoadPlayerState(CurrentSaveGame);
+		
+	}
+
+	Super::HandleStartingNewPlayer_Implementation(NewPlayer);
 }
 
 void ASGameModeBase::KillAll()
@@ -63,7 +86,72 @@ void ASGameModeBase::KillAll()
 
 void ASGameModeBase::OnBotSpawnQueryCompleted(UEnvQueryInstanceBlueprintWrapper* QueryInstance, EEnvQueryStatus::Type QueryStatus)
 {
+	if (QueryStatus != EEnvQueryStatus::Success)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Spawn bot EQS Query Failed"));
+		return;
+	}
 
+	TArray<FVector> Locations = QueryInstance->GetResultsAsLocations();
+
+	if (Locations.IsValidIndex(0))
+	{
+
+		if (MonsterTable)
+		{
+			TArray<FMonsterInfoRow*> Rows;
+			MonsterTable->GetAllRows("", Rows);
+
+			//获得随机敌人
+			int32 RandomIndex = FMath::RandRange(0, Rows.Num() - 1);
+			FMonsterInfoRow* SelectedRow = Rows[RandomIndex];
+
+
+			UAssetManager* Manager = UAssetManager::GetIfValid();
+			if (Manager)
+			{
+				TArray<FName> Bundles;
+
+				FStreamableDelegate Delegate = FStreamableDelegate::CreateUObject(this,&ASGameModeBase::OnMonsterLoaded,SelectedRow->MonsterId,Locations[0]);
+				
+				Manager->LoadPrimaryAsset(SelectedRow->MonsterId, Bundles, Delegate);
+			}
+
+		}
+
+		
+		//DrawDebugSphere(GetWorld(), Locations[0], 50.0f, 20, FColor::Red, false, 30.0f);
+	}
+}
+
+void ASGameModeBase::OnMonsterLoaded(FPrimaryAssetId LoadedId, FVector SpawnLoaction)
+{
+	UAssetManager* Manager = UAssetManager::GetIfValid();
+	if (Manager)
+	{
+		USMonsterData* MonsterData = Cast<USMonsterData>(Manager->GetPrimaryAssetObject(LoadedId));
+		if (MonsterData)
+		{
+			AActor* NewBot = GetWorld()->SpawnActor<AActor>(MonsterData->MonsterClass, SpawnLoaction, FRotator::ZeroRotator);
+			if (NewBot)
+			{
+
+				LogOnScreen(this, FString::Printf(TEXT("Spawned enemy: %s (%s)"), *GetNameSafe(NewBot), *GetNameSafe(MonsterData)));
+
+				USActionComponent* ActionCompp = Cast<USActionComponent>(NewBot->GetComponentByClass(USActionComponent::StaticClass()));
+				if (ActionCompp)
+				{
+					for (TSubclassOf<USAction> ActionClass : MonsterData->Actions)
+					{
+						ActionCompp->AddAction(NewBot, ActionClass);
+					}
+				}
+
+			}
+		}
+	}
+
+	
 }
 
 void ASGameModeBase::OnPowerupSpawnQueryCompleted(UEnvQueryInstanceBlueprintWrapper* QueryInstance, EEnvQueryStatus::Type QueryStatus)
@@ -169,7 +257,7 @@ void ASGameModeBase::SpawnTimerElapsed()
 
 	if (ensure(QueryInstance))
 	{
-		QueryInstance->GetOnQueryFinishedEvent().AddDynamic(this, &ASGameModeBase::OnQueryCompleted);//这个GetOnQueryFinishedEvent返回一个代理再通过这个代理绑定事件
+		QueryInstance->GetOnQueryFinishedEvent().AddDynamic(this, &ASGameModeBase::OnBotSpawnQueryCompleted);//这个GetOnQueryFinishedEvent返回一个代理再通过这个代理绑定事件
 	}
 
 	
@@ -177,21 +265,8 @@ void ASGameModeBase::SpawnTimerElapsed()
 
 void ASGameModeBase::OnQueryCompleted(UEnvQueryInstanceBlueprintWrapper* QueryInstance, EEnvQueryStatus::Type QueryStatus)
 {
-	if (QueryStatus != EEnvQueryStatus::Success)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Spawn bot EQS Query Failed"));
-		return;
-	}
-
-	TArray<FVector> Locations = QueryInstance->GetResultsAsLocations();
-
-	if (Locations.IsValidIndex(0))
-	{
-		GetWorld()->SpawnActor<AActor>(MinionClass, Locations[0], FRotator::ZeroRotator);
-		DrawDebugSphere(GetWorld(), Locations[0], 50.0f, 20, FColor::Red,false,30.0f);
-	}
+	
 }
-
 
 void ASGameModeBase::RespawnPlayerElapsed(AController* Controller)
 {
@@ -229,4 +304,117 @@ void ASGameModeBase::OnActorKilled(AActor* VictimActor, AActor* Killer)
 	}
 
 }
+
+void ASGameModeBase::WriteSaveGame()
+{
+	
+	//迭代所有玩家的状态，目前暂时还没有玩家ID来匹配（需要Steam或者EOS）
+	for (int32 i = 0;i < GameState->PlayerArray.Num();i++)
+	{
+		ASPlayerState *PS = Cast<ASPlayerState>(GameState->PlayerArray[i]);
+		if(PS)
+		{
+			PS->SavePlayerState(CurrentSaveGame);
+			break;//注意这个break，目前只处理一个玩家所以加个break，后期会有玩家和ID对应来读取数据
+		}
+	}
+
+	CurrentSaveGame->SavedActors.Empty(); //先清理一遍
+
+	// 遍历世界中所有Actor
+	for (FActorIterator It(GetWorld()); It; ++It)
+	{
+		AActor* Actor = *It;
+		// 只关心影响游戏性的 'gameplay actors'
+		if (!Actor->Implements<USGameplayInterface>())
+		{
+			continue;
+		}
+
+		FActorSaveData ActorData;
+		ActorData.ActorName = Actor->GetName();
+		ActorData.Transform = Actor->GetActorTransform();
+
+		// 将Actor的信息存在数组中
+		FMemoryWriter MemWriter(ActorData.ByteData);
+		// 只存储标记了 UPROPERTY(SaveGame)的变量
+		FObjectAndNameAsStringProxyArchive Ar(MemWriter,true);
+		Ar.ArIsSaveGame = true;
+		// 将所有标记了的 UPROPERTIY 放进序列化后的数组
+		Actor->Serialize(Ar);
+
+
+		CurrentSaveGame->SavedActors.Add(ActorData);
+	}
+
+	UGameplayStatics::SaveGameToSlot(CurrentSaveGame, SlotName, 0);
+}
+
+void ASGameModeBase::LoadSaveGame()
+{
+	if (UGameplayStatics::DoesSaveGameExist(SlotName,0))
+	{
+		 CurrentSaveGame = Cast<USSaveGame>(UGameplayStatics::LoadGameFromSlot(SlotName, 0)) ;
+		 if (CurrentSaveGame == nullptr)
+		 {
+			 UE_LOG(LogTemp, Warning, TEXT("Failed to load SaveGame Data"));
+			 return;
+		 }
+
+		 UE_LOG(LogTemp, Warning, TEXT("load SaveGame Data Success"));
+			
+		 for (FActorIterator It(GetWorld()); It; ++It)
+		 {
+			 AActor* Actor = *It;
+
+			 // 只关心影响游戏性的 'gameplay actors'
+			 if (!Actor->Implements<USGameplayInterface>())
+			 {
+				 continue;
+			 }
+
+			 for (FActorSaveData ActorData : CurrentSaveGame->SavedActors)
+			 {
+				 if (ActorData.ActorName == Actor->GetName())
+				 {
+					 Actor->SetActorTransform(ActorData.Transform);
+
+					 FMemoryWriter MemReader(ActorData.ByteData);
+					 FObjectAndNameAsStringProxyArchive Ar(MemReader, true);
+					 Ar.ArIsSaveGame = true;
+					 // 将二进制数组转换回Actor变量。
+					 Actor->Serialize(Ar);
+
+					 ISGameplayInterface::Execute_OnActorLoaded(Actor);
+
+					 break;
+				 }
+			 }
+		 }
+	
+	}
+	else
+	{
+		CurrentSaveGame = Cast<USSaveGame>(UGameplayStatics::CreateSaveGameObject(USSaveGame::StaticClass())) ;
+		UE_LOG(LogTemp, Warning, TEXT("Create New SaveGame Data"));
+	}
+
+	
+}
+
+void ASGameModeBase::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) //在任何其他函数之前调用
+{
+	Super::InitGame(MapName, Options, ErrorMessage);
+
+	FString SelectedSaveSlot = UGameplayStatics::ParseOption(Options, "SaveGame");
+	if (SelectedSaveSlot.Len() > 0)
+	{
+		SlotName = SelectedSaveSlot;
+	}
+
+
+	LoadSaveGame();
+}
+
+
 

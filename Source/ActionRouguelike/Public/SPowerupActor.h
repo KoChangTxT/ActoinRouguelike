@@ -20,6 +20,12 @@ public:
 	ASPowerupActor();
 
 protected:
+
+	UPROPERTY(ReplicatedUsing = "OnRep_IsActive")
+		bool bIsActive;
+
+	UFUNCTION()
+		void OnRep_IsActive();
 	
 	UPROPERTY(EditAnywhere, Category = "Powerup")
 		float RespawnTime;
@@ -41,5 +47,7 @@ protected:
 
 public:
 	virtual void Interact_Implementation(APawn* InstigatorPawn) override;
+
+	virtual FText GetInteractText_Implemetation(APawn* InstigatorPawn) ;
 
 };

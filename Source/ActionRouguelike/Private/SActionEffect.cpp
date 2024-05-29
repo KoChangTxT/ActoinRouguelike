@@ -3,6 +3,7 @@
 
 #include "SActionEffect.h"
 #include "SActionComponent.h"
+#include "GameFramework/GameStateBase.h"
 
 
 USActionEffect::USActionEffect()
@@ -46,14 +47,25 @@ void USActionEffect::StopAction_Implementation(AActor* Instigator)
 	GetWorld()->GetTimerManager().ClearTimer(DurationHandle);
 	GetWorld()->GetTimerManager().ClearTimer(PeriodHandle);
 
-	USActionComponent* ActionComp = GetOwnningComponent();
-	if (ActionComp)
+	USActionComponent* ActionComp_tmp = GetOwnningComponent();
+	if (ActionComp_tmp)
 	{
-		ActionComp->RemoveAction(this);
+		ActionComp_tmp->RemoveAction(this);
 	}
 }
 
+float USActionEffect::GetTimeRemaining() const
+{
+	AGameStateBase* GS = GetWorld()->GetGameState<AGameStateBase>();
+	if (GS)
+	{
+		float EndTime = TimeStarted + Duration;
 
+		return EndTime - GS->GetServerWorldTimeSeconds();
+	}
+
+	return Duration;
+}
 
 void USActionEffect::ExecutePeriodicEffect_Implementation(AActor* Instigator)
 {
