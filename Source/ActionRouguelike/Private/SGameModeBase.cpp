@@ -51,6 +51,7 @@ void ASGameModeBase::StartPlay()
 		UEnvQueryInstanceBlueprintWrapper* QueryInstance = UEnvQueryManager::RunEQSQuery(this, PowerupSpawnQuery, this, EEnvQueryRunMode::AllMatching, nullptr);
 		if (ensure(QueryInstance))
 		{
+			
 			QueryInstance->GetOnQueryFinishedEvent().AddDynamic(this, &ASGameModeBase::OnPowerupSpawnQueryCompleted);
 		}
 	}
@@ -88,9 +89,11 @@ void ASGameModeBase::OnBotSpawnQueryCompleted(UEnvQueryInstanceBlueprintWrapper*
 {
 	if (QueryStatus != EEnvQueryStatus::Success)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Spawn bot EQS Query Failed"));
+		//UE_LOG(LogTemp, Warning, TEXT("Spawn bot EQS Query Failed"));
 		return;
 	}
+
+	
 
 	TArray<FVector> Locations = QueryInstance->GetResultsAsLocations();
 
@@ -136,7 +139,7 @@ void ASGameModeBase::OnMonsterLoaded(FPrimaryAssetId LoadedId, FVector SpawnLoac
 			if (NewBot)
 			{
 
-				LogOnScreen(this, FString::Printf(TEXT("Spawned enemy: %s (%s)"), *GetNameSafe(NewBot), *GetNameSafe(MonsterData)));
+				//LogOnScreen(this, FString::Printf(TEXT("Spawned enemy: %s (%s)"), *GetNameSafe(NewBot), *GetNameSafe(MonsterData)));
 
 				USActionComponent* ActionCompp = Cast<USActionComponent>(NewBot->GetComponentByClass(USActionComponent::StaticClass()));
 				if (ActionCompp)
@@ -156,21 +159,26 @@ void ASGameModeBase::OnMonsterLoaded(FPrimaryAssetId LoadedId, FVector SpawnLoac
 
 void ASGameModeBase::OnPowerupSpawnQueryCompleted(UEnvQueryInstanceBlueprintWrapper* QueryInstance, EEnvQueryStatus::Type QueryStatus)
 {
+	
 	if (QueryStatus != EEnvQueryStatus::Success)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Spawn bot EQS Query Failed!"));
+		UE_LOG(LogTemp, Warning, TEXT("Spawn PowerUp EQS Query Failed!"));
 		return;
 	}
 
-	TArray<FVector> Locations = QueryInstance->GetResultsAsLocations();
+	
 
-	// 把之前使用过的位置储存起来，这样我们可以更快地计算出距离
+	TArray<FVector> Locations = QueryInstance->GetResultsAsLocations();
+	
+
+	// 把之前使用过的位置储存起来，可以更快地计算出距离
 	TArray<FVector> UsedLocations;
 
 	int32 SpawnCounter = 0;
 	// 如果我们已经生成了足够多的拾取物或者没有更多的可以使用的生成点时结束
 	while (SpawnCounter < DesiredPowerupCount && Locations.Num() > 0)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("Locations.num: %d"), Locations.Num());
 		// 从剩下的殿中随机选出一个
 		int32 RandomLocationIndex = FMath::RandRange(0, Locations.Num() - 1);
 
@@ -205,7 +213,9 @@ void ASGameModeBase::OnPowerupSpawnQueryCompleted(UEnvQueryInstanceBlueprintWrap
 		int32 RandomClassIndex = FMath::RandRange(0, PowerupClasses.Num() - 1);
 		TSubclassOf<AActor> RandomPowerupClass = PowerupClasses[RandomClassIndex];
 
-		GetWorld()->SpawnActor<AActor>(RandomPowerupClass, PickedLocation, FRotator::ZeroRotator);
+		FVector SpawnLocation = FVector(PickedLocation.X, PickedLocation.Y, PickedLocation.Z + 10.0f);
+
+		GetWorld()->SpawnActor<AActor>(RandomPowerupClass, SpawnLocation, FRotator::ZeroRotator);
 
 		// 将使用过的点储存起来用于距离测试
 		UsedLocations.Add(PickedLocation);
@@ -218,7 +228,7 @@ void ASGameModeBase::SpawnTimerElapsed()
 
 	if (CVarSpawnBots.GetValueOnGameThread())
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Bot spawning disabled via cvar 'CvarspawnBots'.,in GameMode cpp"));
+		//UE_LOG(LogTemp, Warning, TEXT("Bot spawning disabled via cvar 'CvarspawnBots'.,in GameMode cpp"));
 		return;
 	}
 	
@@ -236,12 +246,12 @@ void ASGameModeBase::SpawnTimerElapsed()
 		}
 	}
 
-	UE_LOG(LogTemp, Log, TEXT("Found %i alive bots"), NrofAliveBots);
+	//UE_LOG(LogTemp, Log, TEXT("Found %i alive bots"), NrofAliveBots);
 
 	float MaxBotCount = 10.0f;
 	if (NrofAliveBots >= MaxBotCount)
 	{
-		UE_LOG(LogTemp, Log, TEXT("At maximum bot capacity.Skipping bot spawn."));
+		//UE_LOG(LogTemp, Log, TEXT("At maximum bot capacity.Skipping bot spawn."));
 		return;
 
 	}

@@ -11,7 +11,7 @@
 
 void USAction::StartAction_Implementation(AActor* Instigator)
 {
-	UE_LOG(LogTemp, Log, TEXT("Running: %s"), *GetNameSafe(this));
+	//UE_LOG(LogTemp, Log, TEXT("Running: %s"), *GetNameSafe(this));
 	//UE_LOG(LogTemp, Warning, TEXT("Character is in111"));
 	//LogOnScreen(this, FString::Printf(TEXT("Started:%s"), *ActionName.ToString()), FColor :: Green);
 
@@ -33,7 +33,7 @@ void USAction::StartAction_Implementation(AActor* Instigator)
 
 void USAction::StopAction_Implementation(AActor* Instigator)
 { 
-	UE_LOG(LogTemp, Log, TEXT("Stopped: %s"), *GetNameSafe(this));
+	//UE_LOG(LogTemp, Log, TEXT("Stopped: %s"), *GetNameSafe(this));
 	//LogOnScreen(this, FString::Printf(TEXT("Stopped:%s"), *ActionName.ToString()),FColor::White);
 
 	//ensureAlways(bIsRunning);

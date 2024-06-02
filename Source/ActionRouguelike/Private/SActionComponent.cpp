@@ -54,18 +54,18 @@ void USActionComponent::TickComponent(float DeltaTime, ELevelTick TickType, FAct
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
 	//Draw All Actions
-	for (USAction*Action : Actions)
-	{
-		FColor TextColor = Action->IsRunning() ? FColor :: Blue : FColor :: White;
-		FString ActionMsg = FString::Printf(TEXT("[%s]Action: %s IsRunning: %s"),
-			*GetNameSafe(GetOwner()),
-			*GetNameSafe(Action),
-			Action->IsRunning() ? TEXT("true") : TEXT("false"));
+	//for (USAction*Action : Actions)
+	//{
+	//	FColor TextColor = Action->IsRunning() ? FColor::Blue : FColor::White;
+	//	FString ActionMsg = FString::Printf(TEXT("[%s]Action: %s IsRunning: %s"),
+	//		*GetNameSafe(GetOwner()),
+	//		*GetNameSafe(Action),
+	//		Action->IsRunning() ? TEXT("true") : TEXT("false"));
 
 
-		LogOnScreen(this, ActionMsg, TextColor, 0.0f);
-		
-	}
+	//	//LogOnScreen(this, ActionMsg, TextColor, 0.0f);
+	//	
+	//}
 		
 }
 
@@ -123,7 +123,7 @@ bool USActionComponent::StartActionByName(AActor* Instigator, FName ActionName)
 			if (!Action->CanStart(Instigator)) 
 			{
 				FString FailedMsg = FString :: Printf(TEXT("Failed to run:%s"), *ActionName.ToString());
-				GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Red, FailedMsg);
+				//GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Red, FailedMsg);
 				continue;//这个continue是不同的技能但是有相同的名字，其中一个可以释放的情况
 			}
 
